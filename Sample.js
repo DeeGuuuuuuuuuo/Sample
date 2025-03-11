@@ -1,48 +1,33 @@
-function getEnvironmentVariableValue(variableSchemaName, callback) {
-    // 查询环境变量的定义
-    var query = "/api/data/v9.2/environmentvariabledefinitions?$filter=schemaname eq '" + variableSchemaName + "'&$select=environmentvariabledefinitionid,defaultvalue";
+function processString(V, E) {
+  try {
+    // 处理 ISBLANK(V3792) 逻辑
+    if (!V?.toString().trim()) return "";
 
-    Xrm.WebApi.retrieveMultipleRecords("environmentvariabledefinition", query).then(
-        function success(result) {
-            if (result.entities.length > 0) {
-                var variableId = result.entities[0].environmentvariabledefinitionid;
-                var defaultValue = result.entities[0].defaultvalue;
+    const str = E?.toString() || "";
+    // 找到第一个空格的位置
+    const firstSpaceIndex = str.indexOf(" ");
+    if (firstSpaceIndex === -1) return "N/A"; // 无空格直接返回错误
 
-                // 查询环境变量的值
-                var valueQuery = "/api/data/v9.2/environmentvariablevalues?$filter=_environmentvariabledefinitionid_value eq " + variableId + "&$select=value";
+    // 截取第一个空格后的部分
+    const remainingStr = str.slice(firstSpaceIndex + 1);
+    // 找第二个空格的位置
+    const secondSpaceIndex = remainingStr.indexOf(" ");
 
-                Xrm.WebApi.retrieveMultipleRecords("environmentvariablevalue", valueQuery).then(
-                    function success(valueResult) {
-                        if (valueResult.entities.length > 0) {
-                            // 返回环境变量的值
-                            callback(valueResult.entities[0].value);
-                        } else {
-                            // 如果没有设置值，返回默认值
-                            callback(defaultValue);
-                        }
-                    },
-                    function error(error) {
-                        console.error("查询环境变量值时出错:", error);
-                        callback(null);
-                    }
-                );
-            } else {
-                console.error("未找到环境变量定义:", variableSchemaName);
-                callback(null);
-            }
-        },
-        function error(error) {
-            console.error("查询环境变量定义时出错:", error);
-            callback(null);
-        }
-    );
+    // 计算替换长度（Excel公式中的复杂逻辑）
+    const replaceLength = secondSpaceIndex === -1 
+      ? remainingStr.length 
+      : secondSpaceIndex;
+
+    // 生成替换字符串（REPT逻辑）
+    const xStr = "X".repeat(replaceLength);
+
+    // 拼接最终结果（REPLACE逻辑）
+    return [
+      str.slice(0, firstSpaceIndex + 1), // 保留第一个空格前的内容和空格
+      xStr,
+      secondSpaceIndex === -1 ? "" : remainingStr.slice(secondSpaceIndex)
+    ].join("");
+  } catch (e) {
+    return "N/A"; // IFERROR 逻辑
+  }
 }
-
-// 使用示例
-getEnvironmentVariableValue("YourVariableSchemaName", function(value) {
-    if (value !== null) {
-        console.log("环境变量的值是:", value);
-    } else {
-        console.log("未找到环境变量或值。");
-    }
-});
